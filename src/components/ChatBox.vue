@@ -1,10 +1,12 @@
 <script setup>
-import { ref, nextTick, computed, watch } from 'vue'
+import { ref, nextTick, computed, watch, onMounted } from 'vue'
+import { addMessage, getMessagesByCharacter, deleteMessagesByCharacter, clear, STORES } from '../utils/db.js'
 
 const props = defineProps({
   apiUrl: String,
   apiKey: String,
   model: String,
+  apiList: Array,
   characters: Array,
   selectedCharacterId: Number
 })
@@ -39,9 +41,16 @@ const enabledCharacters = computed(() => {
   return chars
 })
 
-// 监听角色切换，清空消息
-watch(() => props.selectedCharacterId, () => {
-  messages.value = []
+// 监听角色切换，加载对应消息
+watch(async () => {
+  // 角色已切换，加载历史消息
+  if (props.selectedCharacterId !== null) {
+    const history = await getMessagesByCharacter(props.selectedCharacterId, 50)
+    messages.value = history.reverse() // 正序显示
+  } else {
+    // 群聊模式，加载所有启用角色的消息
+    messages.value = []
+  }
   showMentionPanel.value = false
 }, { deep: true })
 
@@ -175,18 +184,39 @@ const parseMentions = (text) => {
   return mentions
 }
 
+// 获取角色使用的 API 配置
+const getApiForCharacter = (character) => {
+  const apiIndex = character.apiIndex || 0
+  if (props.apiList && props.apiList.length > 0) {
+    return props.apiList[Math.min(apiIndex, props.apiList.length - 1)]
+  }
+  // 兼容旧配置
+  return {
+    url: props.apiUrl,
+    key: props.apiKey,
+    model: props.model || 'qwen-plus'
+  }
+}
+
 // 发送消息 - 单聊
 const sendMessageSingle = async (characterId) => {
   const character = props.characters?.find(c => c.id === characterId)
   if (!character) return
 
+  // 获取该角色使用的 API 配置
+  const apiConfig = getApiForCharacter(character)
+
   const userMessage = {
     role: 'user',
     content: inputMessage.value.trim(),
-    timestamp: new Date().toLocaleTimeString()
+    timestamp: new Date().toLocaleTimeString(),
+    characterId: characterId
   }
 
   messages.value.push(userMessage)
+  // 异步保存到数据库
+  addMessage(userMessage)
+  
   inputMessage.value = ''
   isLoading.value = true
   adjustTextareaHeight()
@@ -198,7 +228,8 @@ const sendMessageSingle = async (characterId) => {
     timestamp: new Date().toLocaleTimeString(),
     isStreaming: true,
     agentId: character.id,
-    agentName: character.name
+    agentName: character.name,
+    characterId: characterId
   }
   messages.value.push(aiMessage)
 
@@ -213,14 +244,14 @@ const sendMessageSingle = async (characterId) => {
       content: m.content
     })))
 
-    const response = await fetch(`${props.apiUrl}/v1/chat/completions`, {
+    const response = await fetch(`${apiConfig.url}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${props.apiKey}`
+        'Authorization': `Bearer ${apiConfig.key}`
       },
       body: JSON.stringify({
-        model: props.model || 'qwen-plus',
+        model: apiConfig.model || 'qwen-plus',
         messages: messagesToSend,
         stream: true
       })
@@ -254,9 +285,13 @@ const sendMessageSingle = async (characterId) => {
       }
     }
     aiMessage.isStreaming = false
+    // 保存到数据库
+    addMessage(aiMessage)
   } catch (error) {
     aiMessage.content = `❌ 错误：${error.message}`
     aiMessage.isStreaming = false
+    // 错误消息也保存
+    addMessage(aiMessage)
   }
 
   isLoading.value = false
@@ -310,6 +345,10 @@ const sendMessageGroup = async () => {
 
   const promises = targetCharacters.map(async (character, index) => {
     const aiMessage = aiMessages[index]
+    
+    // 获取该角色使用的 API 配置
+    const apiConfig = getApiForCharacter(character)
+    
     try {
       const messagesToSend = [{
         role: 'system',
@@ -321,14 +360,14 @@ const sendMessageGroup = async () => {
         content: m.content
       })))
 
-      const response = await fetch(`${props.apiUrl}/v1/chat/completions`, {
+      const response = await fetch(`${apiConfig.url}/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${props.apiKey}`
+          'Authorization': `Bearer ${apiConfig.key}`
         },
         body: JSON.stringify({
-          model: props.model || 'qwen-plus',
+          model: apiConfig.model || 'qwen-plus',
           messages: messagesToSend,
           stream: true
         })
@@ -386,9 +425,16 @@ const sendMessage = async () => {
 }
 
 // 清空对话
-const clearChat = () => {
+const clearChat = async () => {
   if (confirm('确定要清空当前对话吗？')) {
     messages.value = []
+    // 从数据库删除
+    if (props.selectedCharacterId !== null) {
+      await deleteMessagesByCharacter(props.selectedCharacterId)
+    } else {
+      // 群聊模式清空所有消息
+      await clear(STORES.MESSAGES)
+    }
   }
 }
 

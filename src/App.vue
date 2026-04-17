@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import ChatBox from './components/ChatBox.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import { initDB, get, set, migrateFromLocalStorage, isFallbackMode, getStorageStats, STORES } from './utils/db.js'
 
 // 配置状态
 const config = ref({
@@ -12,10 +13,10 @@ const config = ref({
 
 // 角色列表（最多 4 个）
 const characters = ref([
-  { id: 1, name: 'Kira', enabled: true, description: '刚毕业的女大学生，活泼可爱', style: '活泼开朗、可爱', quirks: '喜欢用"喵"口癖', emoji: '✨💖🐱' },
-  { id: 2, name: '小智', enabled: true, description: '理性专业的助手', style: '简洁、专业', quirks: '无特殊口癖', emoji: '🤖💡' },
-  { id: 3, name: '暖暖', enabled: true, description: '温柔体贴的大姐姐', style: '温柔、耐心', quirks: '喜欢用"呢"、"哦"', emoji: '🌸💕' },
-  { id: 4, name: '博士', enabled: false, description: '知识渊博的学者', style: '严谨、学术', quirks: '喜欢引用数据', emoji: '📚🔬' }
+  { id: 1, name: 'Kira', enabled: true, description: '刚毕业的女大学生，活泼可爱', style: '活泼开朗、可爱', quirks: '喜欢用"喵"口癖', emoji: '✨💖🐱', apiIndex: 0 },
+  { id: 2, name: '小智', enabled: true, description: '理性专业的助手', style: '简洁、专业', quirks: '无特殊口癖', emoji: '🤖💡', apiIndex: 0 },
+  { id: 3, name: '暖暖', enabled: true, description: '温柔体贴的大姐姐', style: '温柔、耐心', quirks: '喜欢用"呢"、"哦"', emoji: '🌸💕', apiIndex: 0 },
+  { id: 4, name: '博士', enabled: false, description: '知识渊博的学者', style: '严谨、学术', quirks: '喜欢引用数据', emoji: '📚🔬', apiIndex: 0 }
 ])
 
 // 当前选中的角色（null 表示群聊模式）
@@ -26,40 +27,55 @@ const sidebarCollapsed = ref(false)
 const showMobileSidebar = ref(false)
 
 // 检查是否是首次访问
-onMounted(() => {
-  const savedConfig = localStorage.getItem('ai-chat-config')
+onMounted(async () => {
+  // 初始化数据库
+  await initDB()
+  
+  // 尝试迁移 localStorage 数据
+  if (!isFallbackMode()) {
+    await migrateFromLocalStorage()
+  }
+  
+  // 加载配置
+  const savedConfig = await get(STORES.CONFIG, 'main')
   if (savedConfig) {
-    config.value = JSON.parse(savedConfig)
+    config.value = savedConfig
   }
   
-  const savedCharacters = localStorage.getItem('ai-chat-characters')
+  // 加载角色
+  const savedCharacters = await get(STORES.CHARACTERS, 'list')
   if (savedCharacters) {
-    characters.value = JSON.parse(savedCharacters)
+    characters.value = savedCharacters
   }
   
-  const savedSelected = localStorage.getItem('ai-chat-selected-character')
-  if (savedSelected) {
-    selectedCharacterId.value = JSON.parse(savedSelected)
+  // 加载选中状态
+  const savedSelected = await get(STORES.SETTINGS, 'selectedCharacter')
+  if (savedSelected !== null && savedSelected !== undefined) {
+    selectedCharacterId.value = savedSelected
   }
+  
+  // 打印存储统计
+  const stats = await getStorageStats()
+  console.log('[AI-Chat] 存储模式:', stats.mode, '| 数据:', stats.stores)
 })
 
 // 保存配置
-const saveConfig = (newConfig) => {
+const saveConfig = async (newConfig) => {
   config.value = newConfig
-  localStorage.setItem('ai-chat-config', JSON.stringify(newConfig))
+  await set(STORES.CONFIG, 'main', newConfig)
   showSettings.value = false
 }
 
 // 保存角色配置
-const saveCharacters = (newCharacters) => {
+const saveCharacters = async (newCharacters) => {
   characters.value = newCharacters
-  localStorage.setItem('ai-chat-characters', JSON.stringify(newCharacters))
+  await set(STORES.CHARACTERS, 'list', newCharacters)
 }
 
 // 选择角色
-const selectCharacter = (id) => {
+const selectCharacter = async (id) => {
   selectedCharacterId.value = id
-  localStorage.setItem('ai-chat-selected-character', JSON.stringify(id))
+  await set(STORES.SETTINGS, 'selectedCharacter', id)
   showMobileSidebar.value = false
 }
 
@@ -174,6 +190,7 @@ const selectedCharacter = computed(() => {
         :api-url="config.apiUrl" 
         :api-key="config.apiKey"
         :model="config.model"
+        :api-list="config.apiList || []"
         :characters="characters"
         :selected-character-id="selectedCharacterId"
         @saveCharacters="saveCharacters"

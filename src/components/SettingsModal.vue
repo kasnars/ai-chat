@@ -1,10 +1,17 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { isFallbackMode } from '../utils/db.js'
 
 const props = defineProps({
   modelValue: Boolean,
   config: Object,
   characters: Array
+})
+
+const dbMode = ref(null)
+
+onMounted(async () => {
+  dbMode.value = isFallbackMode() ? 'localStorage' : 'IndexedDB'
 })
 
 const emit = defineEmits(['update:modelValue', 'save', 'saveCharacters'])
@@ -13,6 +20,33 @@ const localConfig = ref({ ...props.config })
 const localCharacters = ref(props.characters ? [...props.characters] : [])
 const activeTab = ref('api')
 const editingCharacterId = ref(null)
+
+// 多 API 配置
+const apiList = ref([])
+const editingApiIndex = ref(-1)
+
+// 初始化 API 列表
+watch(() => props.modelValue, (newVal) => {
+  if (newVal) {
+    localConfig.value = { ...props.config }
+    localCharacters.value = props.characters ? [...props.characters] : []
+    
+    // 初始化 API 列表
+    if (props.config?.apiList && props.config.apiList.length > 0) {
+      apiList.value = JSON.parse(JSON.stringify(props.config.apiList))
+    } else if (props.config?.apiUrl) {
+      // 兼容旧配置，转换为 API 列表
+      apiList.value = [{
+        name: '默认 API',
+        url: props.config.apiUrl,
+        key: props.config.apiKey,
+        model: props.config.model || 'qwen-plus'
+      }]
+    } else {
+      apiList.value = []
+    }
+  }
+})
 
 // 角色颜色
 const characterColors = [
@@ -45,19 +79,127 @@ const apiPresets = [
 ]
 
 const selectPreset = (preset) => {
-  localConfig.value.apiUrl = preset.url
+  if (editingApiIndex.value >= 0) {
+    // 编辑模式
+    apiList.value[editingApiIndex.value].url = preset.url
+  } else {
+    // 新增模式
+    localConfig.value.apiUrl = preset.url
+  }
+}
+
+// 添加 API
+const addApi = () => {
+  apiList.value.push({
+    name: `API ${apiList.value.length + 1}`,
+    url: '',
+    key: '',
+    model: 'qwen-plus'
+  })
+  editingApiIndex.value = apiList.value.length - 1
+}
+
+// 编辑 API
+const editApi = (index) => {
+  editingApiIndex.value = index
+}
+
+// 删除 API
+const deleteApi = (index) => {
+  if (apiList.value.length <= 1) {
+    alert('至少需要保留一个 API 喵～')
+    return
+  }
+  if (confirm('确定要删除这个 API 配置吗？')) {
+    apiList.value.splice(index, 1)
+    if (editingApiIndex.value >= index) {
+      editingApiIndex.value = -1
+    }
+  }
+}
+
+// 上移 API
+const moveApiUp = (index) => {
+  if (index > 0) {
+    const temp = apiList.value[index - 1]
+    apiList.value[index - 1] = apiList.value[index]
+    apiList.value[index] = temp
+  }
+}
+
+// 下移 API
+const moveApiDown = (index) => {
+  if (index < apiList.value.length - 1) {
+    const temp = apiList.value[index + 1]
+    apiList.value[index + 1] = apiList.value[index]
+    apiList.value[index] = temp
+  }
+}
+
+// 保存 API 编辑
+const saveApiEdit = () => {
+  if (editingApiIndex.value >= 0) {
+    const api = apiList.value[editingApiIndex.value]
+    if (!api.name.trim()) {
+      alert('请输入 API 名称喵～')
+      return
+    }
+    if (!api.url.trim()) {
+      alert('请输入 API 地址喵～')
+      return
+    }
+    if (!api.key.trim()) {
+      alert('请输入 API Key 喵～')
+      return
+    }
+    api.url = api.url.replace(/\/$/, '')
+  }
+  editingApiIndex.value = -1
+}
+
+// 取消编辑
+const cancelEditApi = () => {
+  if (editingApiIndex.value >= 0 && apiList.value[editingApiIndex.value].url === '') {
+    // 如果是新增但未填写的 API，删除它
+    apiList.value.splice(editingApiIndex.value, 1)
+  }
+  editingApiIndex.value = -1
 }
 
 const handleSubmit = () => {
-  if (!localConfig.value.apiUrl.trim()) {
-    alert('请输入 API 地址喵～')
+  // 验证 API 列表
+  if (apiList.value.length === 0) {
+    alert('请至少添加一个 API 配置喵～')
     return
   }
-  if (!localConfig.value.apiKey.trim()) {
-    alert('请输入 API Key 喵～')
-    return
+  
+  for (let i = 0; i < apiList.value.length; i++) {
+    const api = apiList.value[i]
+    if (!api.name.trim()) {
+      alert(`第${i + 1}个 API 名称不能为空喵～`)
+      return
+    }
+    if (!api.url.trim()) {
+      alert(`第${i + 1}个 API 地址不能为空喵～`)
+      return
+    }
+    if (!api.key.trim()) {
+      alert(`第${i + 1}个 API Key 不能为空喵～`)
+      return
+    }
+    api.url = api.url.replace(/\/$/, '')
   }
-  localConfig.value.apiUrl = localConfig.value.apiUrl.replace(/\/$/, '')
+  
+  // 保存 API 列表到配置
+  localConfig.value.apiList = apiList.value
+  
+  // 兼容旧字段：使用第一个 API 作为默认
+  if (apiList.value.length > 0) {
+    localConfig.value.apiUrl = apiList.value[0].url
+    localConfig.value.apiKey = apiList.value[0].key
+    localConfig.value.model = apiList.value[0].model
+  }
+  
   emit('save', localConfig.value)
 }
 
@@ -172,7 +314,17 @@ const resetToDefaults = () => {
         <div class="modal">
           <!-- 头部 -->
           <div class="modal-header">
-            <h2 class="modal-title">⚙️ 设置</h2>
+            <div>
+              <h2 class="modal-title">⚙️ 设置</h2>
+              <div class="db-status-inline" v-if="dbMode">
+                <span 
+                  class="mode-dot"
+                  :style="{ backgroundColor: dbMode === 'IndexedDB' ? '#5b8ff9' : '#f59e0b' }"
+                  :title="dbMode === 'localStorage' ? '降级模式：IndexedDB 不可用' : '正常模式'"
+                ></span>
+                <span>{{ dbMode }}</span>
+              </div>
+            </div>
             <button @click="emit('update:modelValue', false)" class="modal-close">×</button>
           </div>
 
@@ -202,51 +354,87 @@ const resetToDefaults = () => {
           <div class="modal-content">
             <!-- API 配置 -->
             <div v-if="activeTab === 'api'">
-              <div class="form-group">
-                <label class="form-label">快速选择 API 服务商</label>
-                <div class="preset-buttons">
-                  <button
-                    v-for="preset in apiPresets"
-                    :key="preset.name"
-                    @click="selectPreset(preset)"
-                    class="preset-btn"
-                  >
-                    {{ preset.name }}
-                  </button>
+              <div class="info-box" style="margin-top: 0; margin-bottom: 1.5rem;">
+                <h4>🔌 多 API 配置</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                  可以配置多个 API，在人设设置中为不同角色分配不同的 API。
+                  如果只有一个 API，所有角色默认使用它。
+                  <strong>第一个 API 会作为默认 API 使用。</strong>
+                </p>
+              </div>
+
+              <!-- API 列表 -->
+              <div class="api-list-section">
+                <div class="api-list-header">
+                  <h4>API 列表（{{ apiList.length }}个）</h4>
+                  <button @click="addApi" class="add-api-btn">➕ 添加 API</button>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label class="form-label">API 地址 <span class="required">*</span></label>
-                <input
-                  v-model="localConfig.apiUrl"
-                  type="url"
-                  placeholder="例如：https://dashscope.aliyuncs.com/api/v1"
-                  class="form-input"
-                />
-                <p class="form-hint">AI 服务的 API 基础地址</p>
-              </div>
+                <div class="api-list">
+                  <div 
+                    v-for="(api, index) in apiList" 
+                    :key="index"
+                    :class="['api-item', { editing: editingApiIndex === index }]"
+                  >
+                    <!-- 编辑模式 -->
+                    <div v-if="editingApiIndex === index" class="api-edit-form">
+                      <div class="form-row">
+                        <input
+                          v-model="api.name"
+                          type="text"
+                          placeholder="API 名称（如：阿里云、OpenAI）"
+                          class="form-input small"
+                        />
+                        <div class="api-actions">
+                          <button @click="moveApiUp(index)" :disabled="index === 0" class="icon-btn" title="上移">⬆️</button>
+                          <button @click="moveApiDown(index)" :disabled="index === apiList.length - 1" class="icon-btn" title="下移">⬇️</button>
+                          <button @click="deleteApi(index)" class="icon-btn delete" title="删除">🗑️</button>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <input
+                          v-model="api.url"
+                          type="url"
+                          placeholder="API 地址"
+                          class="form-input small"
+                        />
+                        <button @click="selectPreset(api)" class="preset-btn small">预设</button>
+                      </div>
+                      <div class="form-row">
+                        <input
+                          v-model="api.key"
+                          type="password"
+                          placeholder="API Key"
+                          class="form-input small"
+                        />
+                        <input
+                          v-model="api.model"
+                          type="text"
+                          placeholder="模型名称"
+                          class="form-input small"
+                        />
+                      </div>
+                      <div class="form-actions">
+                        <button @click="cancelEditApi" class="btn-secondary small">取消</button>
+                        <button @click="saveApiEdit" class="btn-primary small">保存</button>
+                      </div>
+                    </div>
 
-              <div class="form-group">
-                <label class="form-label">API Key <span class="required">*</span></label>
-                <input
-                  v-model="localConfig.apiKey"
-                  type="password"
-                  placeholder="请输入你的 API Key"
-                  class="form-input"
-                />
-                <p class="form-hint">API Key 仅保存在本地，不会上传到服务器</p>
-              </div>
+                    <!-- 显示模式 -->
+                    <div v-else class="api-display" @click="editApi(index)">
+                      <div class="api-info">
+                        <div class="api-name">{{ api.name || '未命名 API' }}</div>
+                        <div class="api-url-display">{{ api.url }}</div>
+                        <div class="api-model">模型：{{ api.model || 'qwen-plus' }}</div>
+                      </div>
+                      <button @click="editApi(index)" class="edit-api-btn">✏️ 编辑</button>
+                    </div>
+                  </div>
 
-              <div class="form-group">
-                <label class="form-label">模型名称</label>
-                <input
-                  v-model="localConfig.model"
-                  type="text"
-                  placeholder="例如：qwen-plus"
-                  class="form-input"
-                />
-                <p class="form-hint">使用的 AI 模型名称</p>
+                  <div v-if="apiList.length === 0" class="empty-api-list">
+                    暂无 API 配置，请点击下方按钮添加喵～
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -328,6 +516,26 @@ const resetToDefaults = () => {
                   <input v-model="char.name" type="text" class="form-input" />
                 </div>
 
+                <!-- API 选择 -->
+                <div class="form-group">
+                  <label class="form-label">使用的 API</label>
+                  <select v-model="char.apiIndex" class="form-input">
+                    <option 
+                      v-for="(api, idx) in apiList" 
+                      :key="idx"
+                      :value="idx"
+                    >
+                      {{ api.name || 'API ' + (idx + 1) }} ({{ api.url }})
+                    </option>
+                  </select>
+                  <p class="form-hint" v-if="apiList.length <= 1">
+                    只有一个 API 时，所有角色都使用它喵～
+                  </p>
+                  <p class="form-hint" v-else>
+                    为这个角色选择使用的 API，不同角色可以用不同的 API 喵～ ✨
+                  </p>
+                </div>
+
                 <div class="form-group">
                   <label class="form-label">性格描述</label>
                   <textarea v-model="char.description" rows="2" class="form-input" style="resize: vertical;"></textarea>
@@ -392,6 +600,22 @@ const resetToDefaults = () => {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary, #1c1f23);
+  margin-bottom: 4px;
+}
+
+.db-status-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #8f959e);
+}
+
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .modal-close {
@@ -483,6 +707,190 @@ const resetToDefaults = () => {
   border-color: var(--primary-color, #5b8ff9);
   background: var(--bg-primary, #ffffff);
   transform: translateY(-1px);
+}
+
+.preset-btn.small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+}
+
+/* API 列表样式 */
+.api-list-section {
+  margin-top: 1rem;
+}
+
+.api-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(91, 143, 249, 0.08), rgba(61, 114, 246, 0.08));
+  border-radius: 8px;
+}
+
+.api-list-header h4 {
+  font-size: 0.95rem;
+  color: var(--primary-color, #5b8ff9);
+  margin: 0;
+}
+
+.add-api-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #5b8ff9, #3d72f6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-api-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(91, 143, 249, 0.3);
+}
+
+.api-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.api-item {
+  background: var(--bg-tertiary, #f2f3f5);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border, #e5e6eb);
+  transition: all 0.2s;
+}
+
+.api-item.editing {
+  border-color: var(--primary-color, #5b8ff9);
+  background: #ffffff;
+}
+
+.api-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.api-display:hover {
+  opacity: 0.8;
+}
+
+.api-info {
+  flex: 1;
+}
+
+.api-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1c1f23);
+  margin-bottom: 4px;
+}
+
+.api-url-display {
+  font-size: 0.85rem;
+  color: var(--text-tertiary, #8f959e);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.api-model {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #646a73);
+}
+
+.edit-api-btn {
+  padding: 0.5rem 1rem;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e6eb);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-primary, #1c1f23);
+}
+
+.edit-api-btn:hover {
+  border-color: var(--primary-color, #5b8ff9);
+  color: var(--primary-color, #5b8ff9);
+}
+
+.api-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-input.small {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.form-row .form-input {
+  flex: 1;
+}
+
+.api-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-tertiary, #f2f3f5);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background: var(--border, #e5e6eb);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn.delete:hover {
+  background: #fff5f5;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-secondary.small,
+.btn-primary.small {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.empty-api-list {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-tertiary, #8f959e);
+  font-size: 0.9rem;
 }
 
 .form-input {
