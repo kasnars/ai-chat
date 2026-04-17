@@ -7,7 +7,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   
-  /* 豆包风格配色 */
+  /* 浅色主题（默认） */
   --primary-color: #5b8ff9;
   --primary-hover: #3d72f6;
   --text-primary: #1c1f23;
@@ -21,6 +21,20 @@
   --success: #00b365;
   --warning: #ff7a45;
   --error: #f53f3f;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* 深色主题 */
+[data-theme="dark"] {
+  --bg-primary: #1c1f23;
+  --bg-secondary: #242629;
+  --bg-tertiary: #2f3135;
+  --text-primary: #e7e8ea;
+  --text-secondary: #b0b1b3;
+  --text-tertiary: #808285;
+  --text-quaternary: #585a5e;
+  --border: #37393d;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 * {

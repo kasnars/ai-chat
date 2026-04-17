@@ -1,6 +1,8 @@
 <script setup>
 import { ref, nextTick, computed, watch, onMounted } from 'vue'
 import { addMessage, getMessagesByCharacter, deleteMessagesByCharacter, clear, STORES } from '../utils/db.js'
+import SearchModal from './SearchModal.vue'
+import TemplatesModal from './TemplatesModal.vue'
 
 const props = defineProps({
   apiUrl: String,
@@ -27,6 +29,10 @@ const mentionCursorPos = ref(0)
 // 群聊角色选择
 const showCharacterSelector = ref(false)
 const selectedCharacterIds = ref([])
+
+// 搜索和模板
+const showSearch = ref(false)
+const showTemplates = ref(false)
 
 // 初始化选中的角色
 watch(() => props.characters, (newChars) => {
@@ -612,18 +618,39 @@ const currentCharacter = computed(() => {
       </div>
 
       <div class="input-container">
-        <!-- 群聊角色选择按钮 -->
-        <button
-          v-if="isGroupChat"
-          @click="toggleCharacterSelector"
-          :class="['character-select-btn', { active: showCharacterSelector }]"
-          title="选择回复角色"
-        >
-          <span class="select-icon">👥</span>
-          <span class="select-count" v-if="selectedCharacterIds.length < enabledCharacters.length">
-            {{ selectedCharacterIds.length }}
-          </span>
-        </button>
+        <!-- 左侧工具按钮 -->
+        <div class="input-tools">
+          <!-- 群聊角色选择按钮 -->
+          <button
+            v-if="isGroupChat"
+            @click="toggleCharacterSelector"
+            :class="['tool-btn', { active: showCharacterSelector }]"
+            title="选择回复角色"
+          >
+            <span class="tool-icon">👥</span>
+            <span class="tool-count" v-if="selectedCharacterIds.length < enabledCharacters.length">
+              {{ selectedCharacterIds.length }}
+            </span>
+          </button>
+          
+          <!-- 搜索按钮 -->
+          <button
+            @click="showSearch = true"
+            class="tool-btn"
+            title="搜索对话"
+          >
+            <span class="tool-icon">🔍</span>
+          </button>
+          
+          <!-- 模板按钮 -->
+          <button
+            @click="showTemplates = true"
+            class="tool-btn"
+            title="常用语/提示词"
+          >
+            <span class="tool-icon">⚡</span>
+          </button>
+        </div>
 
         <div class="input-box">
           <textarea
@@ -651,6 +678,23 @@ const currentCharacter = computed(() => {
 
       <div class="input-footer">
         <span>AI 生成内容可能不准确，请仔细甄别</span>
+      </div>
+    </div>
+    
+    <!-- 搜索弹窗 -->
+    <div v-if="showSearch" class="modal-overlay" @click.self="showSearch = false">
+      <div class="modal-content search-modal-wrapper">
+        <SearchModal @close="showSearch = false" />
+      </div>
+    </div>
+    
+    <!-- 模板弹窗 -->
+    <div v-if="showTemplates" class="modal-overlay" @click.self="showTemplates = false">
+      <div class="modal-content templates-modal-wrapper">
+        <TemplatesModal 
+          @close="showTemplates = false"
+          @insert="(content) => { inputMessage += content; showTemplates = false }"
+        />
       </div>
     </div>
   </div>
@@ -1173,18 +1217,63 @@ const currentCharacter = computed(() => {
 /* 输入区域 */
 .input-wrapper {
   position: relative;
-  border-top: 1px solid #e5e6eb;
-  background: #ffffff;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
   padding: 16px 20px 12px;
+}
+
+.input-tools {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tool-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: var(--text-primary);
+}
+
+.tool-btn:hover {
+  background: var(--border);
+  transform: scale(1.05);
+}
+
+.tool-btn.active {
+  background: rgba(91, 143, 249, 0.15);
+  color: var(--primary-color);
+}
+
+.tool-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 
 .input-container {
   display: flex;
   align-items: flex-end;
   gap: 12px;
+  flex: 1;
   max-width: 900px;
   margin: 0 auto;
-  background: #f2f3f5;
+  background: var(--bg-tertiary);
   border-radius: 16px;
   padding: 12px 16px;
   border: 2px solid transparent;
@@ -1389,6 +1478,46 @@ const currentCharacter = computed(() => {
 
   .mention-desc {
     font-size: 11px;
+  }
+}
+
+/* 弹窗覆盖层 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.search-modal-wrapper,
+.templates-modal-wrapper {
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+  
+  .input-tools {
+    flex-wrap: wrap;
   }
 }
 </style>

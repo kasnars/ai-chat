@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import ChatBox from './components/ChatBox.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 import { initDB, get, set, migrateFromLocalStorage, isFallbackMode, getStorageStats, STORES } from './utils/db.js'
 
 // 配置状态
@@ -158,9 +159,12 @@ const selectedCharacter = computed(() => {
         <div class="user-info">
           <div class="user-avatar">👤</div>
           <div class="user-name">用户</div>
-          <button @click="showSettings = true" class="user-settings-btn" title="设置">
-            ⚙️
-          </button>
+          <div class="user-actions">
+            <ThemeToggle />
+            <button @click="showSettings = true" class="user-settings-btn" title="设置">
+              ⚙️
+            </button>
+          </div>
         </div>
       </div>
     </aside>
@@ -232,7 +236,8 @@ export default {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: #f7f8fa;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
 }
@@ -422,6 +427,12 @@ body {
   align-items: center;
   gap: 12px;
   flex: 1;
+}
+
+.user-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .user-avatar {
