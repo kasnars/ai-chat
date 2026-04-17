@@ -167,6 +167,8 @@ const cancelEditApi = () => {
 }
 
 const handleSubmit = () => {
+  console.log('[Settings] 提交配置，apiList:', apiList.value)
+  
   // 验证 API 列表
   if (apiList.value.length === 0) {
     alert('请至少添加一个 API 配置喵～')
@@ -190,8 +192,8 @@ const handleSubmit = () => {
     api.url = api.url.replace(/\/$/, '')
   }
   
-  // 保存 API 列表到配置
-  localConfig.value.apiList = apiList.value
+  // 深拷贝 API 列表到配置
+  localConfig.value.apiList = JSON.parse(JSON.stringify(apiList.value))
   
   // 兼容旧字段：使用第一个 API 作为默认
   if (apiList.value.length > 0) {
@@ -200,7 +202,8 @@ const handleSubmit = () => {
     localConfig.value.model = apiList.value[0].model
   }
   
-  emit('save', localConfig.value)
+  console.log('[Settings] emit 配置:', localConfig.value)
+  emit('save', JSON.parse(JSON.stringify(localConfig.value)))
 }
 
 const saveCharacters = () => {

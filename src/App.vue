@@ -39,8 +39,10 @@ onMounted(async () => {
   
   // 加载配置
   const savedConfig = await get(STORES.CONFIG, 'main')
+  console.log('[App] 加载的配置:', savedConfig)
   if (savedConfig) {
-    config.value = savedConfig
+    config.value = { ...savedConfig }
+    console.log('[App] 配置已加载:', config.value)
   }
   
   // 加载角色
@@ -63,8 +65,10 @@ onMounted(async () => {
 
 // 保存配置
 const saveConfig = async (newConfig) => {
-  config.value = newConfig
-  await set(STORES.CONFIG, 'main', newConfig)
+  console.log('[App] 保存配置:', newConfig)
+  config.value = { ...newConfig }
+  const result = await set(STORES.CONFIG, 'main', config.value)
+  console.log('[App] 保存结果:', result)
   showSettings.value = false
 }
 
