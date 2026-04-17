@@ -172,7 +172,8 @@ export async function get(store, key) {
   try {
     const result = await dbInstance.get(store, key)
     console.log('[DB] 读取结果:', result)
-    return result
+    // IndexedDB 返回的是 {key, value, updatedAt}，需要返回 value
+    return result?.value !== undefined ? result.value : result
   } catch (error) {
     console.error('[AI-Chat DB] 读取失败，降级到 localStorage:', error)
     useLocalStorage = true
@@ -240,7 +241,8 @@ export async function getAll(store) {
   try {
     const result = await dbInstance.getAll(store)
     console.log('[DB] getAll 结果:', result)
-    return result
+    // IndexedDB 返回的是 [{key, value, updatedAt}, ...]，需要提取 value
+    return result.map(item => item.value !== undefined ? item.value : item)
   } catch (error) {
     console.error('[AI-Chat DB] 读取全部失败:', error)
     return []
