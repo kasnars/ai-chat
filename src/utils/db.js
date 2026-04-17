@@ -162,12 +162,17 @@ function localStorageDelete(store, key) {
  * 获取数据
  */
 export async function get(store, key) {
+  console.log('[DB get]', store, key)
+  
   if (useLocalStorage || !dbInstance) {
+    console.log('[DB] 使用 localStorage')
     return localStorageGet(store, key)
   }
   
   try {
-    return await dbInstance.get(store, key)
+    const result = await dbInstance.get(store, key)
+    console.log('[DB] 读取结果:', result)
+    return result
   } catch (error) {
     console.error('[AI-Chat DB] 读取失败，降级到 localStorage:', error)
     useLocalStorage = true
@@ -179,12 +184,16 @@ export async function get(store, key) {
  * 保存数据
  */
 export async function set(store, key, value) {
+  console.log('[DB set]', store, key, value)
+  
   if (useLocalStorage || !dbInstance) {
+    console.log('[DB] 使用 localStorage')
     return localStorageSet(store, key, value)
   }
   
   try {
     await dbInstance.put(store, { key, value, updatedAt: Date.now() })
+    console.log('[DB] 写入成功')
     return true
   } catch (error) {
     console.error('[AI-Chat DB] 写入失败，降级到 localStorage:', error)
@@ -214,8 +223,11 @@ export async function remove(store, key) {
  * 获取所有数据
  */
 export async function getAll(store) {
+  console.log('[DB getAll]', store)
+  
   if (useLocalStorage || !dbInstance) {
     const item = localStorage.getItem(localStorageKeys[store])
+    console.log('[DB] localStorage 读取:', item)
     if (!item) return []
     try {
       const data = JSON.parse(item)
@@ -226,7 +238,9 @@ export async function getAll(store) {
   }
   
   try {
-    return await dbInstance.getAll(store)
+    const result = await dbInstance.getAll(store)
+    console.log('[DB] getAll 结果:', result)
+    return result
   } catch (error) {
     console.error('[AI-Chat DB] 读取全部失败:', error)
     return []
@@ -264,9 +278,10 @@ export async function addMessage(message) {
   const messageWithId = {
     ...message,
     id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    timestamp: Date.now()
+    timestamp: message.timestamp || Date.now()
   }
   
+  console.log('[DB] 添加消息:', messageWithId)
   await set(STORES.MESSAGES, messageWithId.id, messageWithId)
   return messageWithId
 }

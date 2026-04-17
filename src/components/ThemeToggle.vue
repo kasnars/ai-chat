@@ -7,6 +7,8 @@ const isDark = ref(false)
 onMounted(async () => {
   // 加载保存的主题
   const savedTheme = await get(STORES.SETTINGS, 'theme')
+  console.log('[Theme] 加载的主题:', savedTheme)
+  
   if (savedTheme === 'dark') {
     isDark.value = true
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -16,6 +18,7 @@ onMounted(async () => {
   } else {
     // 跟随系统
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    console.log('[Theme] 系统偏好:', prefersDark)
     isDark.value = prefersDark
     if (prefersDark) {
       document.documentElement.setAttribute('data-theme', 'dark')
@@ -26,8 +29,10 @@ onMounted(async () => {
 const toggleTheme = async () => {
   isDark.value = !isDark.value
   const theme = isDark.value ? 'dark' : 'light'
+  console.log('[Theme] 切换主题:', theme)
   document.documentElement.setAttribute('data-theme', theme)
-  await set(STORES.SETTINGS, 'theme', theme)
+  const result = await set(STORES.SETTINGS, 'theme', theme)
+  console.log('[Theme] 保存结果:', result)
 }
 </script>
 

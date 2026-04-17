@@ -45,6 +45,7 @@ onMounted(async () => {
   
   // 加载角色
   const savedCharacters = await get(STORES.CHARACTERS, 'list')
+  console.log('[App] 加载的角色:', savedCharacters)
   if (savedCharacters) {
     characters.value = savedCharacters
   }
@@ -69,8 +70,10 @@ const saveConfig = async (newConfig) => {
 
 // 保存角色配置
 const saveCharacters = async (newCharacters) => {
+  console.log('[App] 保存角色:', newCharacters)
   characters.value = newCharacters
-  await set(STORES.CHARACTERS, 'list', newCharacters)
+  const result = await set(STORES.CHARACTERS, 'list', newCharacters)
+  console.log('[App] 保存结果:', result)
 }
 
 // 选择角色
@@ -264,8 +267,8 @@ body {
 /* 侧边栏 */
 .sidebar {
   width: 280px;
-  background: #ffffff;
-  border-right: 1px solid #e5e6eb;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;

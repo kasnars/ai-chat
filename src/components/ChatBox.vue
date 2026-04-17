@@ -705,7 +705,7 @@ const currentCharacter = computed(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #ffffff;
+  background: var(--bg-primary);
   position: relative;
 }
 

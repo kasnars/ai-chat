@@ -31,16 +31,22 @@ const performSearch = async () => {
   
   try {
     const messages = await getAll(STORES.MESSAGES)
+    console.log('[Search] 获取到的消息:', messages)
     const query = searchQuery.value.toLowerCase()
     
     searchResults.value = messages
-      .filter(m => m.value?.content?.toLowerCase().includes(query))
+      .filter(m => {
+        const content = m.value?.content || m.content || ''
+        return content.toLowerCase().includes(query)
+      })
       .map(m => ({
-        ...m.value,
-        characterName: charactersMap.value[m.value.characterId]?.name || '未知角色'
+        ...(m.value || m),
+        characterName: charactersMap.value[(m.value || m).characterId]?.name || '未知角色'
       }))
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 100) // 限制 100 条结果
+    
+    console.log('[Search] 搜索结果:', searchResults.value.length)
   } catch (error) {
     console.error('搜索失败:', error)
   } finally {
