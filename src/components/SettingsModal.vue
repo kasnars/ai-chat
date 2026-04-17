@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { isFallbackMode } from '../utils/db.js'
 
 const props = defineProps({
@@ -203,7 +203,10 @@ const saveCharacters = () => {
 
 const editCharacter = (id) => {
   editingCharacterId.value = id
-  activeTab.value = 'edit'
+  // 使用 nextTick 确保 DOM 更新后再切换 tab
+  setTimeout(() => {
+    activeTab.value = 'edit'
+  }, 50)
 }
 
 const getCharacterById = (id) => {
@@ -237,14 +240,17 @@ const deleteCharacter = (id) => {
     ElMessage.warning('至少需要保留一个角色喵～')
     return
   }
-  ElMessageBox.confirm('确定要删除这个角色吗？', '提示', {
-    confirmButtonText: '确定',
+  ElMessageBox.confirm('确定要删除这个角色吗？删除后无法恢复喵～', '删除确认', {
+    confirmButtonText: '确定删除',
     cancelButtonText: '取消',
     type: 'warning',
+    distinguishCancelAndClose: true,
   }).then(() => {
     localCharacters.value = localCharacters.value.filter(c => c.id !== id)
-    ElMessage.success('删除成功')
-  }).catch(() => {})
+    ElMessage.success('删除成功喵～✨')
+  }).catch(() => {
+    // 用户取消
+  })
 }
 
 const addCharacter = () => {
@@ -568,25 +574,38 @@ const resetToDefaults = () => {
 
 <style scoped>
 :deep(.el-dialog__header) {
-  padding: 16px 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--el-border-color);
 }
 
 :deep(.el-dialog__title) {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 :deep(.el-dialog__body) {
-  padding: 20px;
+  padding: 24px;
 }
 
 :deep(.el-dialog__footer) {
-  padding: 12px 20px;
+  padding: 16px 24px;
   border-top: 1px solid var(--el-border-color);
 }
 
 :deep(.el-tabs__header) {
   margin-bottom: 20px;
+}
+
+:deep(.el-tabs__item) {
+  font-size: 14px;
+  padding: 0 20px;
+}
+
+:deep(.el-card__body) {
+  padding: 16px 20px;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 16px;
 }
 </style>

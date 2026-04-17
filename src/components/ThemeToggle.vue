@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { get, set, STORES } from '../utils/db.js'
+import { ElMessage } from 'element-plus'
 
 const isDark = ref(false)
 
@@ -25,24 +26,27 @@ onMounted(async () => {
 })
 
 const toggleTheme = async () => {
-  isDark.value = !isDark.value
-  const theme = isDark.value ? 'dark' : 'light'
-  console.log('[Theme] 切换主题:', theme)
-  document.documentElement.setAttribute('data-theme', theme)
-  const result = await set(STORES.SETTINGS, 'theme', theme)
+  const newTheme = isDark.value ? 'dark' : 'light'
+  console.log('[Theme] 切换主题:', newTheme)
+  document.documentElement.setAttribute('data-theme', newTheme)
+  const result = await set(STORES.SETTINGS, 'theme', newTheme)
   console.log('[Theme] 保存结果:', result)
+  ElMessage.success(`已切换到${newTheme === 'dark' ? '深色' : '浅色'}模式喵～✨`)
 }
 </script>
 
 <template>
-  <el-switch
-    v-model="isDark"
-    @change="toggleTheme"
-    :active-icon="Moon"
-    :inactive-icon="Sunny"
-    inline-prompt
-    style="--el-switch-on-color: #2c2f36; --el-switch-off-color: #f7f8fa;"
-  />
+  <el-tooltip :content="isDark ? '切换到浅色模式' : '切换到深色模式'" placement="bottom">
+    <el-switch
+      v-model="isDark"
+      @change="toggleTheme"
+      :active-icon="Moon"
+      :inactive-icon="Sunny"
+      inline-prompt
+      size="large"
+      style="--el-switch-on-color: #2c2f36; --el-switch-off-color: #f7f8fa;"
+    />
+  </el-tooltip>
 </template>
 
 <style scoped>

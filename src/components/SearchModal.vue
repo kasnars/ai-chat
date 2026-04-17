@@ -81,10 +81,10 @@ const highlightKeyword = (text, keyword) => {
 </script>
 
 <template>
-  <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h3 style="font-size: 16px; font-weight: 600;">🔍 搜索对话</h3>
-      <el-button @click="emit('close')" size="small" icon="Close">关闭</el-button>
+  <div style="padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin: 0;">🔍 搜索对话</h3>
+      <el-button @click="emit('close')" size="default" icon="Close">关闭</el-button>
     </div>
     
     <el-input

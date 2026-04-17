@@ -94,10 +94,10 @@ const loadPreset = (preset) => {
 </script>
 
 <template>
-  <div style="padding: 20px 0;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h3 style="font-size: 16px; font-weight: 600;">⚡ 常用语/提示词模板</h3>
-      <el-button @click="emit('close')" size="small" icon="Close">关闭</el-button>
+  <div style="padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin: 0;">⚡ 常用语/提示词模板</h3>
+      <el-button @click="emit('close')" size="default" icon="Close">关闭</el-button>
     </div>
     
     <!-- 添加/编辑表单 -->

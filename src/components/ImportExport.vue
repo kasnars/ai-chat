@@ -165,9 +165,9 @@ const handleImport = async (event) => {
 </script>
 
 <template>
-  <div style="padding: 20px 0;">
-    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">📤 导出数据</h3>
-    <p style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 16px;">
+  <div style="padding: 24px;">
+    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">📤 导出数据</h3>
+    <p style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 20px;">
       将对话记录导出为文件，用于备份或迁移喵～
     </p>
     
