@@ -174,7 +174,7 @@ function localStorageDelete(store, key) {
  * 获取数据
  */
 export async function get(store, key) {
-  console.log('[DB get]', store, key)
+  console.log('[DB get]', store, key, 'useLocalStorage:', useLocalStorage, 'dbInstance:', !!dbInstance)
   
   if (useLocalStorage || !dbInstance) {
     console.log('[DB] 使用 localStorage')
@@ -183,9 +183,14 @@ export async function get(store, key) {
   
   try {
     const result = await dbInstance.get(store, key)
-    console.log('[DB] 读取结果:', result)
+    console.log('[DB] 读取结果:', result, 'result?.value:', result?.value)
     // IndexedDB 返回的是 {key, value, updatedAt}，需要返回 value
-    return result?.value !== undefined ? result.value : result
+    if (result && typeof result === 'object' && 'value' in result) {
+      console.log('[DB] 解包返回 value')
+      return result.value
+    }
+    console.log('[DB] 直接返回 result')
+    return result
   } catch (error) {
     console.error('[AI-Chat DB] 读取失败，降级到 localStorage:', error)
     useLocalStorage = true

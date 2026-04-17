@@ -54,11 +54,21 @@ onMounted(async () => {
   // 加载配置
   const savedConfig = await get(STORES.CONFIG, 'main')
   console.log('[App] 加载的配置:', savedConfig)
+  console.log('[App] 配置类型:', typeof savedConfig, 'isArray:', Array.isArray(savedConfig))
   console.log('[App] 配置是否有 apiUrl:', !!savedConfig?.apiUrl)
   console.log('[App] 配置是否有 apiKey:', !!savedConfig?.apiKey)
-  if (savedConfig) {
-    config.value = { ...savedConfig }
+  console.log('[App] 配置 keys:', savedConfig ? Object.keys(savedConfig) : 'null')
+  if (savedConfig && typeof savedConfig === 'object') {
+    // 检查是否是不小心返回的 {main: {...}} 格式
+    if (savedConfig.main && !savedConfig.apiUrl) {
+      console.log('[App] 检测到错误格式，使用 savedConfig.main')
+      config.value = { ...savedConfig.main }
+    } else {
+      config.value = { ...savedConfig }
+    }
     console.log('[App] 配置已加载:', config.value)
+    console.log('[App] 最终 apiUrl:', config.value.apiUrl)
+    console.log('[App] 最终 apiKey:', config.value.apiKey ? '***' + config.value.apiKey.slice(-4) : '无')
   }
   
   // 加载角色
