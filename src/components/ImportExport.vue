@@ -1,21 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { getAll, addMessages, clear, STORES } from '../utils/db.js'
-
-const props = defineProps({
-  characters: Array
-})
+import { ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAll, addMessages, set, STORES } from '../utils/db.js'
 
 const emit = defineEmits(['close'])
 
 const isExporting = ref(false)
 const isImporting = ref(false)
-const importError = ref('')
-
-// 导出格式
 const exportFormat = ref('json')
 
-// 导出对话
 const exportData = async () => {
   isExporting.value = true
   try {
@@ -48,15 +41,15 @@ const exportData = async () => {
     }
     
     downloadFile(content, filename, mimeType)
+    ElMessage.success('导出成功喵～✨')
   } catch (error) {
     console.error('导出失败:', error)
-    alert('导出失败喵～ ' + error.message)
+    ElMessage.error('导出失败喵～ ' + error.message)
   } finally {
     isExporting.value = false
   }
 }
 
-// 下载文件
 const downloadFile = (content, filename, mimeType) => {
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)
@@ -69,13 +62,11 @@ const downloadFile = (content, filename, mimeType) => {
   URL.revokeObjectURL(url)
 }
 
-// 格式化为 Markdown
 const formatAsMarkdown = (messages, characters) => {
   let md = '# AI Chat 对话导出\n\n'
   md += `导出时间：${new Date().toLocaleString('zh-CN')}\n\n`
   md += `总消息数：${messages.length}\n\n---\n\n`
   
-  // 按角色分组
   const grouped = {}
   messages.forEach(msg => {
     const key = msg.characterId || 'group'
@@ -101,7 +92,6 @@ const formatAsMarkdown = (messages, characters) => {
   return md
 }
 
-// 格式化为文本
 const formatAsText = (messages, characters) => {
   let text = 'AI Chat 对话导出\n'
   text += `导出时间：${new Date().toLocaleString('zh-CN')}\n`
@@ -118,13 +108,11 @@ const formatAsText = (messages, characters) => {
   return text
 }
 
-// 导入对话
 const handleImport = async (event) => {
   const file = event.target.files[0]
   if (!file) return
   
   isImporting.value = true
-  importError.value = ''
   
   try {
     const text = await file.text()
@@ -140,21 +128,18 @@ const handleImport = async (event) => {
       throw new Error('这不是 AI Chat 的导出文件喵～')
     }
     
-    // 确认导入
-    if (!confirm(`确定要导入 ${data.messages.length} 条消息吗？\n这将追加到现有对话中喵～`)) {
-      isImporting.value = false
-      return
-    }
+    await ElMessageBox.confirm(`确定要导入 ${data.messages.length} 条消息吗？\n这将追加到现有对话中喵～`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'info',
+    })
     
-    // 导入消息
     await addMessages(data.messages)
     
-    // 导入角色（如果存在）
     if (data.characters) {
       const existing = await getAll(STORES.CHARACTERS)
       const existingList = existing.find(c => c.key === 'list')?.value || []
       
-      // 合并角色
       const merged = [...existingList]
       data.characters.forEach(newChar => {
         const idx = merged.findIndex(c => c.id === newChar.id)
@@ -165,18 +150,14 @@ const handleImport = async (event) => {
         }
       })
       
-      await import.meta.glob('../utils/db.js').then(() => {})
-      // 简单处理：直接保存
-      const { set } = await import('../utils/db.js')
       await set(STORES.CHARACTERS, 'list', merged)
     }
     
-    alert(`导入成功喵～✨\n导入了 ${data.messages.length} 条消息`)
+    ElMessage.success(`导入成功喵～✨\n导入了 ${data.messages.length} 条消息`)
     emit('close')
   } catch (error) {
     console.error('导入失败:', error)
-    importError.value = error.message
-    alert('导入失败喵～ ' + error.message)
+    ElMessage.error('导入失败喵～ ' + error.message)
   } finally {
     isImporting.value = false
   }
@@ -184,173 +165,60 @@ const handleImport = async (event) => {
 </script>
 
 <template>
-  <div class="import-export">
-    <h3>📤 导出数据</h3>
-    <p class="hint">将对话记录导出为文件，用于备份或迁移喵～</p>
+  <div style="padding: 20px 0;">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">📤 导出数据</h3>
+    <p style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 16px;">
+      将对话记录导出为文件，用于备份或迁移喵～
+    </p>
     
-    <div class="export-options">
-      <label class="radio-label">
-        <input type="radio" v-model="exportFormat" value="json" />
-        <span>JSON（完整备份）</span>
-      </label>
-      <label class="radio-label">
-        <input type="radio" v-model="exportFormat" value="markdown" />
-        <span>Markdown（可读性强）</span>
-      </label>
-      <label class="radio-label">
-        <input type="radio" v-model="exportFormat" value="text" />
-        <span>纯文本</span>
-      </label>
-    </div>
+    <el-radio-group v-model="exportFormat" style="margin-bottom: 16px;">
+      <el-radio-button label="json">JSON（完整备份）</el-radio-button>
+      <el-radio-button label="markdown">Markdown（可读性强）</el-radio-button>
+      <el-radio-button label="text">纯文本</el-radio-button>
+    </el-radio-group>
     
-    <button @click="exportData" :disabled="isExporting" class="btn-export">
+    <el-button 
+      type="primary" 
+      @click="exportData" 
+      :loading="isExporting"
+      icon="Download"
+      style="width: 100%;"
+    >
       {{ isExporting ? '导出中...' : '📤 导出对话' }}
-    </button>
+    </el-button>
     
-    <div class="divider"></div>
+    <el-divider />
     
-    <h3>📥 导入数据</h3>
-    <p class="hint">从备份文件恢复对话记录喵～</p>
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">📥 导入数据</h3>
+    <p style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 16px;">
+      从备份文件恢复对话记录喵～
+    </p>
     
-    <label class="import-label">
-      <input 
-        type="file" 
-        accept=".json" 
-        @change="handleImport" 
-        :disabled="isImporting"
-        hidden
-      />
-      <span class="import-btn">
+    <input
+      type="file"
+      accept=".json"
+      @change="handleImport"
+      :disabled="isImporting"
+      style="display: none;"
+      id="import-file"
+    />
+    <label for="import-file">
+      <el-button 
+        :loading="isImporting"
+        icon="Upload"
+        style="width: 100%;"
+      >
         {{ isImporting ? '导入中...' : '📥 选择文件导入' }}
-      </span>
+      </el-button>
     </label>
     
-    <p v-if="importError" class="error">{{ importError }}</p>
+    <el-divider />
     
-    <div class="divider"></div>
-    
-    <div class="info-box">
-      <h4>💡 提示</h4>
-      <ul>
-        <li>JSON 格式包含完整的对话、角色和配置信息</li>
-        <li>Markdown 和纯文本格式仅包含对话内容，适合阅读</li>
-        <li>导入操作会追加数据，不会删除现有对话</li>
-      </ul>
-    </div>
+    <el-alert
+      title="💡 提示"
+      description="JSON 格式包含完整的对话、角色和配置信息。Markdown 和纯文本格式仅包含对话内容，适合阅读。导入操作会追加数据，不会删除现有对话。"
+      type="info"
+      :closable="false"
+    />
   </div>
 </template>
-
-<style scoped>
-.import-export {
-  padding: 1.5rem;
-}
-
-h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.hint {
-  font-size: 0.85rem;
-  color: var(--text-tertiary);
-  margin-bottom: 1rem;
-}
-
-.export-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 1rem;
-}
-
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.radio-label:hover {
-  background: var(--border);
-}
-
-.radio-label input[type="radio"] {
-  margin: 0;
-}
-
-.btn-export,
-.import-btn {
-  width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, #5b8ff9, #3d72f6);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-export:hover,
-.import-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(91, 143, 249, 0.3);
-}
-
-.btn-export:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.import-label {
-  display: block;
-}
-
-.divider {
-  height: 1px;
-  background: var(--border);
-  margin: 1.5rem 0;
-}
-
-.error {
-  color: var(--error);
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-}
-
-.info-box {
-  background: linear-gradient(135deg, rgba(91, 143, 249, 0.08), rgba(61, 114, 246, 0.08));
-  border-left: 4px solid var(--primary-color);
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-.info-box h4 {
-  font-size: 0.9rem;
-  color: var(--primary-color);
-  margin-bottom: 0.5rem;
-}
-
-.info-box ul {
-  margin: 0;
-  padding-left: 1.2rem;
-}
-
-.info-box li {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.3rem;
-}
-</style>

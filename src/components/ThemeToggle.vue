@@ -5,7 +5,6 @@ import { get, set, STORES } from '../utils/db.js'
 const isDark = ref(false)
 
 onMounted(async () => {
-  // 加载保存的主题
   const savedTheme = await get(STORES.SETTINGS, 'theme')
   console.log('[Theme] 加载的主题:', savedTheme)
   
@@ -16,7 +15,6 @@ onMounted(async () => {
     isDark.value = false
     document.documentElement.setAttribute('data-theme', 'light')
   } else {
-    // 跟随系统
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     console.log('[Theme] 系统偏好:', prefersDark)
     isDark.value = prefersDark
@@ -37,29 +35,18 @@ const toggleTheme = async () => {
 </script>
 
 <template>
-  <button @click="toggleTheme" class="theme-toggle" :title="isDark ? '切换到浅色模式' : '切换到深色模式'">
-    <span class="theme-icon">{{ isDark ? '☀️' : '🌙' }}</span>
-  </button>
+  <el-switch
+    v-model="isDark"
+    @change="toggleTheme"
+    :active-icon="Moon"
+    :inactive-icon="Sunny"
+    inline-prompt
+    style="--el-switch-on-color: #2c2f36; --el-switch-off-color: #f7f8fa;"
+  />
 </template>
 
 <style scoped>
-.theme-toggle {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  color: var(--text-primary);
-}
-
-.theme-toggle:hover {
-  background: var(--border);
-  transform: scale(1.05);
+:deep(.el-switch) {
+  margin: 0 8px;
 }
 </style>
