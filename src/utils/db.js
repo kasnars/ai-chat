@@ -100,11 +100,18 @@ const localStorageKeys = {
 function localStorageGet(store, key) {
   try {
     const item = localStorage.getItem(localStorageKeys[store])
-    if (!item) return null
+    console.log('[DB localStorageGet]', store, key, 'raw:', item)
+    if (!item) {
+      console.log('[DB] localStorage 无数据')
+      return null
+    }
     
     const data = JSON.parse(item)
+    console.log('[DB] localStorage 解析后:', data)
     if (typeof data === 'object' && data !== null) {
-      return data[key] || null
+      const result = data[key] || null
+      console.log('[DB] localStorage 返回:', result)
+      return result
     }
     return data
   } catch (e) {
@@ -125,13 +132,18 @@ function localStorageSet(store, key, value) {
       existing = {}
     }
     
+    console.log('[DB localStorageSet]', store, key, 'existing:', existing, 'value:', value)
+    
     if (typeof existing === 'object' && existing !== null) {
       existing[key] = value
     } else {
       existing = { [key]: value }
     }
     
-    localStorage.setItem(localStorageKeys[store], JSON.stringify(existing))
+    const toSave = JSON.stringify(existing)
+    console.log('[DB] localStorage 准备保存:', toSave)
+    localStorage.setItem(localStorageKeys[store], toSave)
+    console.log('[DB] localStorage 保存完成')
     return true
   } catch (e) {
     console.error('[AI-Chat DB] localStorage 写入失败:', e)

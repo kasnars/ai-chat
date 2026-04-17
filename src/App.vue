@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import ChatBox from './components/ChatBox.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
-import { initDB, get, set, migrateFromLocalStorage, isFallbackMode, getStorageStats, STORES } from './utils/db.js'
+import { initDB, get, set, migrateFromLocalStorage, isFallbackMode, getStorageStats, STORES, getDB } from './utils/db.js'
 
 // 配置状态
 const config = ref({
@@ -29,17 +29,33 @@ const showMobileSidebar = ref(false)
 
 // 检查是否是首次访问
 onMounted(async () => {
+  console.log('[App] 开始初始化...')
+  
   // 初始化数据库
   await initDB()
+  console.log('[App] DB 初始化完成，降级模式:', isFallbackMode())
   
   // 尝试迁移 localStorage 数据
   if (!isFallbackMode()) {
     await migrateFromLocalStorage()
   }
   
+  // 直接从 IndexedDB 读取原始数据调试
+  const db = getDB()
+  if (db) {
+    try {
+      const rawConfig = await db.get('config', 'main')
+      console.log('[App] === 原始配置数据 ===', rawConfig)
+    } catch (e) {
+      console.error('[App] 读取原始数据失败:', e)
+    }
+  }
+  
   // 加载配置
   const savedConfig = await get(STORES.CONFIG, 'main')
   console.log('[App] 加载的配置:', savedConfig)
+  console.log('[App] 配置是否有 apiUrl:', !!savedConfig?.apiUrl)
+  console.log('[App] 配置是否有 apiKey:', !!savedConfig?.apiKey)
   if (savedConfig) {
     config.value = { ...savedConfig }
     console.log('[App] 配置已加载:', config.value)
